@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>news-box</title>
+  <title>GitHub分析メモ付きニュースボード</title>
   <style>
     :root {
       --bg: #f6f7f9;
@@ -404,6 +404,52 @@
       padding-left: 18px;
     }
 
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .stat,
+    .board-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #ffffff;
+      padding: 14px;
+      box-shadow: var(--shadow);
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .stat span,
+    .repo {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .board-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+    }
+
+    .board-card {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .board-card h3,
+    .board-card p {
+      margin: 0;
+      line-height: 1.55;
+    }
+
     .headline {
       display: grid;
       gap: 10px;
@@ -561,11 +607,12 @@
       <div class="brand">
         <div class="brand-mark" aria-hidden="true"></div>
         <div>
-          <h1>news-box</h1>
-          <span>structured news briefs</span>
+          <h1>GitHubニュースボード</h1>
+          <span>分析メモ付きでGitHub関連ニュースを整理</span>
         </div>
       </div>
       <div class="top-actions">
+        <button id="exportButton" type="button">JSONエクスポート</button>
         <button id="copyPromptButton" type="button">プロンプトをコピー</button>
         <button id="sampleButton" type="button">サンプル投入</button>
         <button id="newButton" class="primary" type="button">新規登録</button>
@@ -606,6 +653,7 @@
       <main class="main">
         <nav class="tabs" aria-label="表示切替">
           <button class="tab active" data-tab="register" type="button">登録</button>
+          <button class="tab" data-tab="board" type="button">ボード</button>
           <button class="tab" data-tab="detail" type="button">詳細</button>
           <button class="tab" data-tab="prompt" type="button">プロンプト</button>
         </nav>
@@ -670,6 +718,14 @@
                         <option>low</option>
                       </select>
                     </div>
+                    <div class="field">
+                      <label for="fieldGithubRepo">GitHubリポジトリ</label>
+                      <input id="fieldGithubRepo" data-field="github_repo" type="text" placeholder="owner/repo">
+                    </div>
+                    <div class="field">
+                      <label for="fieldGithubUrl">GitHub URL</label>
+                      <input id="fieldGithubUrl" data-field="github_url" type="url" placeholder="https://github.com/...">
+                    </div>
                     <div class="field full">
                       <label for="fieldMainPoint">本題</label>
                       <textarea id="fieldMainPoint" data-field="main_point"></textarea>
@@ -685,6 +741,14 @@
                     <div class="field full">
                       <label for="fieldAnalysis">分析</label>
                       <textarea id="fieldAnalysis" data-field="analysis"></textarea>
+                    </div>
+                    <div class="field full">
+                      <label for="fieldImpact">影響メモ</label>
+                      <textarea id="fieldImpact" data-field="impact"></textarea>
+                    </div>
+                    <div class="field full">
+                      <label for="fieldMemo">自分用メモ</label>
+                      <textarea id="fieldMemo" data-field="memo"></textarea>
                     </div>
                     <div class="field full">
                       <label for="fieldUncertainty">不確実な点</label>
@@ -703,6 +767,11 @@
               </div>
             </section>
           </div>
+        </section>
+
+        <section id="boardView" class="workspace">
+          <div class="dashboard" id="dashboard"></div>
+          <div id="boardGrid" class="board-grid"></div>
         </section>
 
         <section id="detailView" class="workspace">
@@ -741,7 +810,11 @@
       main_point: "政府は生成AIの利用拡大を前提に、透明性とリスク管理を重視した指針改定案を示した。",
       summary: "改定案では、AI利用時の説明責任、個人情報保護、誤情報対策を重点項目として整理している。企業や自治体がAIを導入する際の確認項目も明確化された。",
       background: "生成AIの業務利用が広がる一方で、著作権、個人情報、誤情報、説明責任をめぐる課題が続いている。",
+      github_repo: "github/roadmap",
+      github_url: "https://github.com/github/roadmap",
       analysis: "規制強化というより、利用を止めずに管理水準をそろえる狙いが強い。企業側にはAI利用ルールの文書化や運用記録の整備が求められやすくなる。",
+      impact: "GitHub Actions や Copilot を含む開発ワークフローの監査ログ・説明責任を見直すきっかけになる。",
+      memo: "社内のAI利用ガイドラインと照合する。",
       uncertainty: "最終版で義務に近い表現が増えるか、業界別の細則が出るかはまだ分からない。",
       watch_next: [
         "最終版の公開時期",
@@ -778,10 +851,14 @@ JSON形式:
   "title": "",
   "category": "",
   "importance": "medium",
+  "github_repo": "",
+  "github_url": "",
   "main_point": "",
   "summary": "",
   "background": "",
   "analysis": "",
+  "impact": "",
+  "memo": "",
   "uncertainty": "",
   "watch_next": [],
   "sources": [
@@ -823,6 +900,9 @@ JSON形式:
       detailEmpty: document.getElementById("detailEmpty"),
       detailArticle: document.getElementById("detailArticle"),
       promptText: document.getElementById("promptText"),
+      dashboard: document.getElementById("dashboard"),
+      boardGrid: document.getElementById("boardGrid"),
+      exportButton: document.getElementById("exportButton"),
       copyPromptButton: document.getElementById("copyPromptButton"),
       copyPromptButton2: document.getElementById("copyPromptButton2")
     };
@@ -842,10 +922,14 @@ JSON形式:
       news.importance = choiceFields.importance.includes(news.importance) ? news.importance : "medium";
       news.confidence = choiceFields.confidence.includes(news.confidence) ? news.confidence : "medium";
       news.status = choiceFields.status.includes(news.status) ? news.status : "AI生成";
+      news.github_repo = String(news.github_repo || news.repository || "").trim();
+      news.github_url = String(news.github_url || "").trim();
       news.main_point = String(news.main_point || "").trim();
       news.summary = String(news.summary || news.one_line_summary || "").trim();
       news.background = String(news.background || "").trim();
       news.analysis = String(news.analysis || "").trim();
+      news.impact = String(news.impact || "").trim();
+      news.memo = String(news.memo || "").trim();
       news.uncertainty = String(news.uncertainty || "").trim();
       news.created_by = String(news.created_by || "chatgpt").trim();
       news.watch_next = Array.isArray(news.watch_next)
@@ -880,6 +964,9 @@ JSON形式:
       }
       if (!choiceFields.confidence.includes(news.confidence)) {
         errors.push("confidence は high / medium / low のいずれかです");
+      }
+      if (news.github_url && !/^https:\/\/github\.com\//.test(news.github_url)) {
+        errors.push("GitHub URLは https://github.com/ で始めてください");
       }
       if (news.sources.some((source) => source.url && !/^https?:\/\//.test(source.url))) {
         errors.push("出典URLは http または https で始めてください");
@@ -939,10 +1026,14 @@ JSON形式:
       setField("status", draft.status);
       setField("importance", draft.importance);
       setField("confidence", draft.confidence);
+      setField("github_repo", draft.github_repo);
+      setField("github_url", draft.github_url);
       setField("main_point", draft.main_point);
       setField("summary", draft.summary);
       setField("background", draft.background);
       setField("analysis", draft.analysis);
+      setField("impact", draft.impact);
+      setField("memo", draft.memo);
       setField("uncertainty", draft.uncertainty);
       setField("watch_next_text", draft.watch_next.join("\n"));
       setField("sources_text", formatSourcesText(draft.sources));
@@ -1001,16 +1092,22 @@ JSON形式:
       syncDraftFromForm();
       if (!state.draft || validateNews(state.draft).length) return;
       const now = new Date().toISOString();
+      const existingIndex = state.items.findIndex((entry) => entry.id === state.draft.id);
       const item = {
         ...state.draft,
-        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-        created_at: now,
+        id: state.draft.id || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
+        created_at: state.draft.created_at || now,
         updated_at: now
       };
-      state.items.unshift(item);
+      if (existingIndex >= 0) {
+        state.items.splice(existingIndex, 1, item);
+      } else {
+        state.items.unshift(item);
+      }
       state.selectedId = item.id;
       saveItems();
       renderList();
+      renderBoard();
       renderDetail();
       switchTab("detail");
       clearDraft();
@@ -1031,7 +1128,7 @@ JSON形式:
     function getFilteredItems() {
       const keyword = els.searchInput.value.trim().toLowerCase();
       return state.items.filter((item) => {
-        const target = [item.title, item.category, item.main_point, item.summary, item.analysis].join(" ").toLowerCase();
+        const target = [item.title, item.category, item.github_repo, item.main_point, item.summary, item.analysis, item.impact, item.memo].join(" ").toLowerCase();
         return (!keyword || target.includes(keyword))
           && (!els.filterStatus.value || item.status === els.filterStatus.value)
           && (!els.filterImportance.value || item.importance === els.filterImportance.value)
@@ -1061,6 +1158,7 @@ JSON形式:
             <span class="chip ${item.confidence}">信頼度 ${item.confidence}</span>
           </div>
           <h3>${escapeHtml(item.title)}</h3>
+          ${item.github_repo ? `<p>📦 ${escapeHtml(item.github_repo)}</p>` : ""}
           <p>${escapeHtml(item.main_point)}</p>
           <div class="meta">
             <span class="chip">${escapeHtml(item.status)}</span>
@@ -1098,13 +1196,18 @@ JSON形式:
           <p>${escapeHtml(item.main_point)}</p>
           <div class="actions">
             <button type="button" data-action="edit">編集へ戻す</button>
-            <button type="button" data-action="json">JSON表示</button>
+            <button type="button" data-action="json">JSONコピー</button>
+            <button type="button" data-action="markdown">Markdownコピー</button>
+            <button type="button" data-action="delete">削除</button>
           </div>
         </div>
         <div class="section-grid">
+          ${renderGithubBox(item)}
           ${renderBox("要約", item.summary, true)}
           ${renderBox("背景", item.background || "未入力", false)}
           ${renderBox("分析", item.analysis, true)}
+          ${renderBox("影響メモ", item.impact || "未入力", true)}
+          ${renderBox("自分用メモ", item.memo || "未入力", true)}
           ${renderBox("不確実な点", item.uncertainty || "未入力", false)}
           ${renderListBox("次に見るべきこと", item.watch_next)}
           ${renderSourceBox(item.sources)}
@@ -1123,6 +1226,42 @@ JSON形式:
       els.detailArticle.querySelector('[data-action="json"]').addEventListener("click", async () => {
         await copyText(JSON.stringify(item, null, 2));
       });
+      els.detailArticle.querySelector('[data-action="markdown"]').addEventListener("click", async () => {
+        await copyText(toMarkdown(item));
+      });
+      els.detailArticle.querySelector('[data-action="delete"]').addEventListener("click", () => {
+        state.items = state.items.filter((entry) => entry.id !== item.id);
+        state.selectedId = null;
+        saveItems();
+        renderList();
+        renderBoard();
+        renderDetail();
+      });
+    }
+
+    function renderBoard() {
+      const items = getFilteredItems();
+      const highCount = items.filter((item) => item.importance === "high").length;
+      const githubCount = items.filter((item) => item.github_repo || item.github_url).length;
+      els.dashboard.innerHTML = `
+        <div class="stat"><strong>${items.length}</strong><span>表示中</span></div>
+        <div class="stat"><strong>${highCount}</strong><span>重要度 high</span></div>
+        <div class="stat"><strong>${githubCount}</strong><span>GitHubリンクあり</span></div>
+      `;
+      els.boardGrid.innerHTML = items.length ? items.map((item) => `
+        <article class="board-card">
+          <div class="meta"><span class="chip ${item.importance}">${item.importance}</span><span class="chip">${escapeHtml(item.category)}</span></div>
+          <h3>${escapeHtml(item.title)}</h3>
+          ${item.github_repo ? `<p class="repo">📦 ${escapeHtml(item.github_repo)}</p>` : ""}
+          <p>${escapeHtml(item.analysis || item.summary)}</p>
+          ${item.impact ? `<strong>影響</strong><p>${escapeHtml(item.impact)}</p>` : ""}
+        </article>
+      `).join("") : '<div class="empty">条件に一致するニュースはありません</div>';
+    }
+
+    function renderGithubBox(item) {
+      if (!item.github_repo && !item.github_url) return "";
+      return `<section class="box wide"><h3>GitHub</h3>${item.github_repo ? `<p>📦 ${escapeHtml(item.github_repo)}</p>` : ""}${item.github_url ? `<p><a href="${escapeAttribute(item.github_url)}" target="_blank" rel="noreferrer">${escapeHtml(item.github_url)}</a></p>` : ""}</section>`;
     }
 
     function renderBox(title, body, wide) {
@@ -1184,6 +1323,31 @@ JSON形式:
       return escapeHtml(value).replaceAll("`", "&#096;");
     }
 
+    function toMarkdown(item) {
+      return `# ${item.title}
+
+- カテゴリ: ${item.category}
+- 重要度: ${item.importance}
+- 信頼度: ${item.confidence}
+${item.github_repo ? `- GitHub: ${item.github_repo}
+` : ""}${item.github_url ? `- URL: ${item.github_url}
+` : ""}
+## 本題
+${item.main_point}
+
+## 要約
+${item.summary}
+
+## 分析
+${item.analysis}
+
+## 影響メモ
+${item.impact || "未入力"}
+
+## 自分用メモ
+${item.memo || "未入力"}`;
+    }
+
     async function copyText(text) {
       try {
         await navigator.clipboard.writeText(text);
@@ -1217,15 +1381,17 @@ JSON形式:
         clearDraft();
         switchTab("register");
       });
+      els.exportButton.addEventListener("click", () => copyText(JSON.stringify(state.items, null, 2)));
       els.copyPromptButton.addEventListener("click", () => copyText(promptTemplate));
       els.copyPromptButton2.addEventListener("click", () => copyText(promptTemplate));
       document.querySelectorAll(".tab").forEach((tab) => {
         tab.addEventListener("click", () => switchTab(tab.dataset.tab));
       });
       [els.searchInput, els.filterStatus, els.filterImportance, els.filterConfidence].forEach((input) => {
-        input.addEventListener("input", renderList);
+        input.addEventListener("input", () => { renderList(); renderBoard(); });
       });
       renderList();
+      renderBoard();
       renderDetail();
     }
 
