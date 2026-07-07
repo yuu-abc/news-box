@@ -1213,6 +1213,7 @@ JSON形式:
           <p>${escapeHtml(item.main_point)}</p>
           <div class="meta">
             <span class="chip">${escapeHtml(item.status)}</span>
+            <span class="chip">取込日 ${escapeHtml(formatDate(item.created_at))}</span>
           </div>
         `;
         button.addEventListener("click", () => {
@@ -1242,6 +1243,7 @@ JSON形式:
             <span class="chip ${item.importance}">重要度 ${item.importance}</span>
             <span class="chip ${item.confidence}">信頼度 ${item.confidence}</span>
             <span class="chip">${escapeHtml(item.status)}</span>
+            <span class="chip">取込日 ${escapeHtml(formatDate(item.created_at))}</span>
             ${item.favorite ? '<span class="chip favorite">★ お気に入り</span>' : ''}
           </div>
           <h2>${escapeHtml(item.title)}</h2>
@@ -1362,6 +1364,17 @@ JSON形式:
         view.classList.remove("active");
       });
       document.getElementById(`${tabName}View`).classList.add("active");
+    }
+
+    function formatDate(value) {
+      if (!value) return "未記録";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return date.toLocaleDateString("ja-JP", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      });
     }
 
     function escapeHtml(value) {
