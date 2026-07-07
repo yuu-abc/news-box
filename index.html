@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>news-box</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#2563eb">
+  <link rel="icon" href="news-box-icon.png">
   <style>
     :root {
       --bg: #f6f7f9;
@@ -288,6 +291,25 @@
     .chip.favorite {
       color: var(--amber);
       border-color: rgba(180, 83, 9, 0.24);
+      background: rgba(180, 83, 9, 0.08);
+    }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 30px;
+      border: 1px solid rgba(15, 118, 110, 0.24);
+      border-radius: 999px;
+      padding: 4px 10px;
+      color: var(--green);
+      background: rgba(15, 118, 110, 0.08);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .status-pill.offline {
+      border-color: rgba(180, 83, 9, 0.24);
+      color: var(--amber);
       background: rgba(180, 83, 9, 0.08);
     }
 
@@ -634,6 +656,8 @@
         </div>
       </div>
       <div class="top-actions">
+        <span id="offlineStatus" class="status-pill" aria-live="polite">オフライン準備中</span>
+        <button id="installButton" type="button" class="hidden">インストール</button>
         <button id="helpButton" type="button">使い方</button>
         <button id="copyPromptButton" type="button">本文からプロンプト</button>
         <button id="sampleButton" type="button">サンプル投入</button>
@@ -799,7 +823,7 @@
             </div>
             <div class="panel-body stack">
               <div class="notice">
-                この仮版はAPIを使いません。ChatGPTで作ったJSONを貼り付けて、ブラウザ内にニュースカードとして保存します。
+                この仮版はAPIを使いません。ChatGPTで作ったJSONを貼り付けて、ブラウザ内にニュースカードとして保存します。対応ブラウザでは一度開いた後、オフラインでも起動できます。
               </div>
               <ol class="guide-steps">
                 <li>上部の「本文からプロンプト」を押します。</li>
@@ -822,6 +846,10 @@
                 <div class="guide-card">
                   <strong>保存場所</strong>
                   <p>登録データはこのブラウザのlocalStorageに保存されます。別端末や別ブラウザには自動同期されません。</p>
+                </div>
+                <div class="guide-card">
+                  <strong>オフライン利用</strong>
+                  <p>HTTPSまたはlocalhostで一度開くと、アプリ本体とアイコンがキャッシュされ、通信がなくても読み込めます。</p>
                 </div>
               </div>
             </div>
@@ -926,7 +954,8 @@ JSON形式:
     const state = {
       items: [],
       draft: null,
-      selectedId: null
+      selectedId: null,
+      installPromptEvent: null
     };
 
     const els = {
@@ -954,7 +983,9 @@ JSON形式:
       helpButton: document.getElementById("helpButton"),
       guidePromptButton: document.getElementById("guidePromptButton"),
       copyPromptButton: document.getElementById("copyPromptButton"),
-      copyPromptButton2: document.getElementById("copyPromptButton2")
+      copyPromptButton2: document.getElementById("copyPromptButton2"),
+      offlineStatus: document.getElementById("offlineStatus"),
+      installButton: document.getElementById("installButton")
     };
 
     function cleanJsonText(text) {
@@ -1438,9 +1469,75 @@ ${articleBlock}`;
       }
     }
 
+
+    function updateOfflineStatus() {
+      const ready = navigator.serviceWorker && navigator.serviceWorker.controller;
+      if (!navigator.onLine) {
+        els.offlineStatus.textContent = ready ? "オフライン動作中" : "オフライン";
+        els.offlineStatus.classList.add("offline");
+        return;
+      }
+      els.offlineStatus.textContent = ready ? "オフライン対応済み" : "オフライン準備中";
+      els.offlineStatus.classList.remove("offline");
+    }
+
+    function registerServiceWorker() {
+      if (!("serviceWorker" in navigator)) {
+        els.offlineStatus.textContent = "オフライン非対応";
+        return;
+      }
+
+      window.addEventListener("online", updateOfflineStatus);
+      window.addEventListener("offline", updateOfflineStatus);
+      navigator.serviceWorker.addEventListener("controllerchange", updateOfflineStatus);
+
+      navigator.serviceWorker.register("./sw.js")
+        .then((registration) => {
+          updateOfflineStatus();
+          if (registration.waiting) {
+            registration.waiting.postMessage({ type: "SKIP_WAITING" });
+          }
+          registration.addEventListener("updatefound", () => {
+            const worker = registration.installing;
+            if (!worker) return;
+            worker.addEventListener("statechange", () => {
+              if (worker.state === "installed") updateOfflineStatus();
+            });
+          });
+        })
+        .catch(() => {
+          els.offlineStatus.textContent = "オフライン準備不可";
+          els.offlineStatus.classList.add("offline");
+        });
+    }
+
+    function setupInstallPrompt() {
+      window.addEventListener("beforeinstallprompt", (event) => {
+        event.preventDefault();
+        state.installPromptEvent = event;
+        els.installButton.classList.remove("hidden");
+      });
+
+      els.installButton.addEventListener("click", async () => {
+        if (!state.installPromptEvent) return;
+        state.installPromptEvent.prompt();
+        await state.installPromptEvent.userChoice;
+        state.installPromptEvent = null;
+        els.installButton.classList.add("hidden");
+      });
+
+      window.addEventListener("appinstalled", () => {
+        state.installPromptEvent = null;
+        els.installButton.classList.add("hidden");
+      });
+    }
+
     function init() {
       loadItems();
       updatePromptPreview();
+      updateOfflineStatus();
+      registerServiceWorker();
+      setupInstallPrompt();
       els.jsonInput.addEventListener("input", parseJsonInput);
       els.articleText.addEventListener("input", updatePromptPreview);
       els.editorForm.addEventListener("input", syncDraftFromForm);
