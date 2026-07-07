@@ -66,6 +66,23 @@
       background: var(--accent-dark);
     }
 
+    button.danger {
+      border-color: rgba(180, 35, 24, 0.32);
+      color: var(--red);
+      background: rgba(180, 35, 24, 0.06);
+    }
+
+    button.danger:hover {
+      border-color: var(--red);
+      background: rgba(180, 35, 24, 0.1);
+    }
+
+    button.favorite-active {
+      border-color: rgba(180, 83, 9, 0.38);
+      color: var(--amber);
+      background: rgba(180, 83, 9, 0.1);
+    }
+
     button:disabled {
       cursor: not-allowed;
       opacity: 0.45;
@@ -266,6 +283,12 @@
       color: var(--green);
       border-color: rgba(15, 118, 110, 0.24);
       background: rgba(15, 118, 110, 0.08);
+    }
+
+    .chip.favorite {
+      color: var(--amber);
+      border-color: rgba(180, 83, 9, 0.24);
+      background: rgba(180, 83, 9, 0.08);
     }
 
     .main {
@@ -645,6 +668,14 @@
               <option value="low">low</option>
             </select>
           </div>
+          <div class="filter-row">
+            <select id="filterFavorite" aria-label="お気に入り">
+              <option value="">お気に入り</option>
+              <option value="favorite">お気に入りのみ</option>
+              <option value="normal">通常のみ</option>
+            </select>
+            <button id="clearFiltersButton" type="button">絞り込み解除</button>
+          </div>
         </div>
         <div id="newsList" class="news-list"></div>
       </aside>
@@ -913,6 +944,8 @@ JSON形式:
       filterStatus: document.getElementById("filterStatus"),
       filterImportance: document.getElementById("filterImportance"),
       filterConfidence: document.getElementById("filterConfidence"),
+      filterFavorite: document.getElementById("filterFavorite"),
+      clearFiltersButton: document.getElementById("clearFiltersButton"),
       detailEmpty: document.getElementById("detailEmpty"),
       detailArticle: document.getElementById("detailArticle"),
       articleText: document.getElementById("articleText"),
@@ -945,6 +978,7 @@ JSON形式:
       news.analysis = String(news.analysis || "").trim();
       news.uncertainty = String(news.uncertainty || "").trim();
       news.created_by = String(news.created_by || "chatgpt").trim();
+      news.favorite = Boolean(news.favorite);
       news.watch_next = Array.isArray(news.watch_next)
         ? news.watch_next.map((item) => String(item).trim()).filter(Boolean)
         : String(news.watch_next || "").split(/\n+/).map((item) => item.trim()).filter(Boolean);
@@ -1124,7 +1158,12 @@ JSON形式:
 
     function loadItems() {
       try {
-        state.items = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+        state.items = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]").map((item) => ({
+          ...normalizeNews(item),
+          id: item.id,
+          created_at: item.created_at,
+          updated_at: item.updated_at
+        }));
       } catch {
         state.items = [];
       }
@@ -1141,7 +1180,10 @@ JSON形式:
         return (!keyword || target.includes(keyword))
           && (!els.filterStatus.value || item.status === els.filterStatus.value)
           && (!els.filterImportance.value || item.importance === els.filterImportance.value)
-          && (!els.filterConfidence.value || item.confidence === els.filterConfidence.value);
+          && (!els.filterConfidence.value || item.confidence === els.filterConfidence.value)
+          && (!els.filterFavorite.value
+            || (els.filterFavorite.value === "favorite" && item.favorite)
+            || (els.filterFavorite.value === "normal" && !item.favorite));
       });
     }
 
@@ -1165,6 +1207,7 @@ JSON形式:
             <span class="chip">${escapeHtml(item.category)}</span>
             <span class="chip ${item.importance}">重要度 ${item.importance}</span>
             <span class="chip ${item.confidence}">信頼度 ${item.confidence}</span>
+            ${item.favorite ? '<span class="chip favorite">★ お気に入り</span>' : ''}
           </div>
           <h3>${escapeHtml(item.title)}</h3>
           <p>${escapeHtml(item.main_point)}</p>
@@ -1199,12 +1242,15 @@ JSON形式:
             <span class="chip ${item.importance}">重要度 ${item.importance}</span>
             <span class="chip ${item.confidence}">信頼度 ${item.confidence}</span>
             <span class="chip">${escapeHtml(item.status)}</span>
+            ${item.favorite ? '<span class="chip favorite">★ お気に入り</span>' : ''}
           </div>
           <h2>${escapeHtml(item.title)}</h2>
           <p>${escapeHtml(item.main_point)}</p>
           <div class="actions">
+            <button type="button" data-action="favorite" class="${item.favorite ? 'favorite-active' : ''}">${item.favorite ? '★ お気に入り解除' : '☆ お気に入り'}</button>
             <button type="button" data-action="edit">編集へ戻す</button>
             <button type="button" data-action="json">JSON表示</button>
+            <button type="button" data-action="delete" class="danger">削除</button>
           </div>
         </div>
         <div class="section-grid">
@@ -1226,8 +1272,16 @@ JSON形式:
         switchTab("register");
       });
 
+      els.detailArticle.querySelector('[data-action="favorite"]').addEventListener("click", () => {
+        toggleFavorite(item.id);
+      });
+
       els.detailArticle.querySelector('[data-action="json"]').addEventListener("click", async () => {
         await copyText(JSON.stringify(item, null, 2));
+      });
+
+      els.detailArticle.querySelector('[data-action="delete"]').addEventListener("click", () => {
+        deleteItem(item.id);
       });
     }
 
@@ -1258,6 +1312,39 @@ JSON形式:
         `).join("")
         : "<p>未入力</p>";
       return `<section class="box"><h3>出典</h3><div class="source-list">${rows}</div></section>`;
+    }
+
+    function toggleFavorite(id) {
+      const item = state.items.find((entry) => entry.id === id);
+      if (!item) return;
+      item.favorite = !item.favorite;
+      item.updated_at = new Date().toISOString();
+      saveItems();
+      renderList();
+      renderDetail();
+    }
+
+    function deleteItem(id) {
+      const item = state.items.find((entry) => entry.id === id);
+      if (!item) return;
+      const confirmed = window.confirm(`「${item.title}」を削除します。よろしいですか？`);
+      if (!confirmed) return;
+      state.items = state.items.filter((entry) => entry.id !== id);
+      if (state.selectedId === id) {
+        state.selectedId = state.items[0] ? state.items[0].id : null;
+      }
+      saveItems();
+      renderList();
+      renderDetail();
+    }
+
+    function clearFilters() {
+      els.searchInput.value = "";
+      els.filterStatus.value = "";
+      els.filterImportance.value = "";
+      els.filterConfidence.value = "";
+      els.filterFavorite.value = "";
+      renderList();
     }
 
     function clearDraft() {
@@ -1366,7 +1453,8 @@ ${articleBlock}`;
       document.querySelectorAll(".tab").forEach((tab) => {
         tab.addEventListener("click", () => switchTab(tab.dataset.tab));
       });
-      [els.searchInput, els.filterStatus, els.filterImportance, els.filterConfidence].forEach((input) => {
+      els.clearFiltersButton.addEventListener("click", clearFilters);
+      [els.searchInput, els.filterStatus, els.filterImportance, els.filterConfidence, els.filterFavorite].forEach((input) => {
         input.addEventListener("input", renderList);
       });
       renderList();
