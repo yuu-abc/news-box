@@ -539,9 +539,53 @@
     }
 
     .source-list,
-    .watch-list {
+    .watch-list,
+    .image-list {
       display: grid;
       gap: 8px;
+    }
+
+    .image-upload-box {
+      border: 1px dashed #b8c3cf;
+      border-radius: var(--radius);
+      background: #f8fafc;
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .image-upload-box input {
+      background: #ffffff;
+    }
+
+    .image-preview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 10px;
+    }
+
+    .image-card {
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #ffffff;
+      padding: 8px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .image-card img {
+      width: 100%;
+      aspect-ratio: 4 / 3;
+      object-fit: cover;
+      border-radius: 6px;
+      background: var(--panel-soft);
+    }
+
+    .image-card span {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+      overflow-wrap: anywhere;
     }
 
     .source-row,
@@ -803,6 +847,14 @@
                       <label for="fieldSources">参考</label>
                       <textarea id="fieldSources" data-field="sources_text"></textarea>
                     </div>
+                    <div class="field full">
+                      <label for="fieldImages">画像</label>
+                      <div class="image-upload-box">
+                        <input id="fieldImages" type="file" accept="image/*" multiple>
+                        <div class="notice">手動でアップロードする画像用の箱です。選んだ画像はこのニュースカードに保存されます。</div>
+                        <div id="imagePreview" class="image-preview-grid"></div>
+                      </div>
+                    </div>
                   </div>
                 </form>
               </div>
@@ -908,6 +960,7 @@
           published_at: "2026-07-07"
         }
       ],
+      images: [],
       confidence: "medium",
       status: "AI生成",
       created_by: "chatgpt"
@@ -1016,6 +1069,9 @@ JSON形式:
       news.sources = Array.isArray(news.sources)
         ? news.sources.map(normalizeSource).filter((source) => source.title || source.url || source.published_at)
         : parseSourcesText(String(news.sources || ""));
+      news.images = Array.isArray(news.images)
+        ? news.images.map(normalizeImage).filter((image) => image.data && image.type.startsWith("image/"))
+        : [];
       return news;
     }
 
@@ -1027,6 +1083,14 @@ JSON形式:
         title: String(source.title || source.name || "").trim(),
         url: String(source.url || "").trim(),
         published_at: String(source.published_at || source.date || "").trim()
+      };
+    }
+
+    function normalizeImage(image) {
+      return {
+        name: String(image.name || "画像").trim(),
+        type: String(image.type || "").trim(),
+        data: String(image.data || "").trim()
       };
     }
 
@@ -1108,6 +1172,7 @@ JSON形式:
       setField("uncertainty", draft.uncertainty);
       setField("watch_next_text", draft.watch_next.join("\n"));
       setField("sources_text", formatSourcesText(draft.sources));
+      renderImagePreview();
     }
 
     function setField(field, value) {
@@ -1178,6 +1243,7 @@ JSON形式:
         created_at: now,
         updated_at: now
       };
+      item.images = state.draft.images || [];
       state.items.unshift(item);
       state.selectedId = item.id;
       saveItems();
@@ -1193,7 +1259,8 @@ JSON形式:
           ...normalizeNews(item),
           id: item.id,
           created_at: item.created_at,
-          updated_at: item.updated_at
+          updated_at: item.updated_at,
+          images: Array.isArray(item.images) ? item.images.map(normalizeImage) : []
         }));
       } catch {
         state.items = [];
@@ -1293,6 +1360,7 @@ JSON形式:
           ${renderBox("不確実な点", item.uncertainty || "未入力", false)}
           ${renderListBox("次に見るべきこと", item.watch_next)}
           ${renderSourceBox(item.sources)}
+          ${renderImageBox(item.images)}
         </div>
       `;
 
@@ -1347,6 +1415,60 @@ JSON形式:
       return `<section class="box"><h3>参考</h3><div class="source-list">${rows}</div></section>`;
     }
 
+    function renderImageBox(images) {
+      const rows = images.length
+        ? images.map((image) => `
+          <figure class="image-card">
+            <img src="${escapeAttribute(image.data)}" alt="${escapeAttribute(image.name || "アップロード画像")}">
+            <span>${escapeHtml(image.name || "アップロード画像")}</span>
+          </figure>
+        `).join("")
+        : "<p>未入力</p>";
+      return `<section class="box wide"><h3>画像</h3><div class="image-list image-preview-grid">${rows}</div></section>`;
+    }
+
+    function renderImagePreview() {
+      const preview = document.getElementById("imagePreview");
+      if (!preview || !state.draft) return;
+      preview.innerHTML = state.draft.images.length
+        ? state.draft.images.map((image, index) => `
+          <div class="image-card">
+            <img src="${escapeAttribute(image.data)}" alt="${escapeAttribute(image.name || "アップロード画像")}">
+            <span>${escapeHtml(image.name || "アップロード画像")}</span>
+            <button type="button" data-image-index="${index}" class="danger">削除</button>
+          </div>
+        `).join("")
+        : '<div class="empty">画像はまだ選択されていません</div>';
+      preview.querySelectorAll("[data-image-index]").forEach((button) => {
+        button.addEventListener("click", () => {
+          state.draft.images.splice(Number(button.dataset.imageIndex), 1);
+          renderImagePreview();
+        });
+      });
+    }
+
+    function readImageFile(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.addEventListener("load", () => resolve({
+          name: file.name,
+          type: file.type,
+          data: String(reader.result || "")
+        }));
+        reader.addEventListener("error", () => reject(reader.error));
+        reader.readAsDataURL(file);
+      });
+    }
+
+    async function addImagesFromInput(event) {
+      if (!state.draft) return;
+      const files = Array.from(event.target.files || []).filter((file) => file.type.startsWith("image/"));
+      const images = await Promise.all(files.map(readImageFile));
+      state.draft.images.push(...images);
+      event.target.value = "";
+      renderImagePreview();
+    }
+
     function toggleFavorite(id) {
       const item = state.items.find((entry) => entry.id === id);
       if (!item) return;
@@ -1385,6 +1507,8 @@ JSON形式:
       state.draft = null;
       setValidation("未入力", "notice");
       renderEditor();
+      const imageInput = document.getElementById("fieldImages");
+      if (imageInput) imageInput.value = "";
     }
 
     function switchTab(tabName) {
@@ -1541,6 +1665,7 @@ ${articleBlock}`;
       els.jsonInput.addEventListener("input", parseJsonInput);
       els.articleText.addEventListener("input", updatePromptPreview);
       els.editorForm.addEventListener("input", syncDraftFromForm);
+      document.getElementById("fieldImages").addEventListener("change", addImagesFromInput);
       els.registerButton.addEventListener("click", registerDraft);
       els.formatButton.addEventListener("click", () => {
         if (!state.draft) parseJsonInput();
