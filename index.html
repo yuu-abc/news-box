@@ -766,9 +766,8 @@
           </div>
           <div class="filter-row">
             <select id="filterFavorite" aria-label="お気に入り">
-              <option value="">お気に入り</option>
-              <option value="favorite">お気に入りのみ</option>
-              <option value="normal">通常のみ</option>
+              <option value="">すべて</option>
+              <option value="favorite">お気に入り</option>
             </select>
             <button id="clearFiltersButton" type="button">絞り込み解除</button>
           </div>
@@ -1319,8 +1318,7 @@ JSON形式:
           && (!els.filterImportance.value || item.importance === els.filterImportance.value)
           && (!els.filterConfidence.value || item.confidence === els.filterConfidence.value)
           && (!els.filterFavorite.value
-            || (els.filterFavorite.value === "favorite" && item.favorite)
-            || (els.filterFavorite.value === "normal" && !item.favorite));
+            || (els.filterFavorite.value === "favorite" && item.favorite));
       });
     }
 
