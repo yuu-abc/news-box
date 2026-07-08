@@ -1,4 +1,4 @@
-const CACHE_NAME = "news-box-v2";
+const CACHE_NAME = "news-box-v3";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -24,16 +24,28 @@ self.addEventListener("activate", (event) => {
   );
 });
 
+function fetchAndCache(request) {
+  return fetch(request).then((response) => {
+    const responseClone = response.clone();
+    caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone));
+    return response;
+  });
+}
+
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      fetchAndCache(event.request)
+        .catch(() => caches.match(event.request).then((cached) => cached || caches.match("./index.html")))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
-      .then((cached) => cached || fetch(event.request).then((response) => {
-        const responseClone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
-        return response;
-      }))
+      .then((cached) => cached || fetchAndCache(event.request))
       .catch(() => caches.match("./index.html"))
   );
 });
