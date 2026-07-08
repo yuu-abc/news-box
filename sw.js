@@ -1,4 +1,4 @@
-const CACHE_NAME = "news-box-v1";
+const CACHE_NAME = "news-box-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
