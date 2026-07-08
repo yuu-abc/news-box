@@ -546,16 +546,44 @@
     }
 
     .image-upload-box {
-      border: 1px dashed #b8c3cf;
+      border: 2px dashed rgba(37, 99, 235, 0.45);
       border-radius: var(--radius);
-      background: #f8fafc;
-      padding: 14px;
+      background: linear-gradient(180deg, #eff6ff 0%, #f8fafc 100%);
+      padding: 16px;
       display: grid;
+      gap: 12px;
+    }
+
+    .image-upload-title {
+      display: flex;
+      align-items: center;
       gap: 10px;
+      color: var(--ink);
+      font-weight: 700;
+      line-height: 1.45;
+    }
+
+    .image-upload-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: #dbeafe;
+      display: grid;
+      place-items: center;
+      font-size: 22px;
+      flex: 0 0 auto;
+    }
+
+    .image-upload-help {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
     }
 
     .image-upload-box input {
       background: #ffffff;
+      border-color: rgba(37, 99, 235, 0.35);
     }
 
     .image-preview-grid {
@@ -848,10 +876,16 @@
                       <textarea id="fieldSources" data-field="sources_text"></textarea>
                     </div>
                     <div class="field full">
-                      <label for="fieldImages">画像</label>
-                      <div class="image-upload-box">
-                        <input id="fieldImages" type="file" accept="image/*" multiple>
-                        <div class="notice">手動でアップロードする画像用の箱です。選んだ画像はこのニュースカードに保存されます。</div>
+                      <label for="fieldImages">画像アップロード</label>
+                      <div class="image-upload-box" aria-describedby="imageUploadHelp">
+                        <div class="image-upload-title">
+                          <span class="image-upload-icon" aria-hidden="true">🖼️</span>
+                          <span>ニュースに残したい画像をここで選びます</span>
+                        </div>
+                        <p id="imageUploadHelp" class="image-upload-help">
+                          「ファイルを選択」からスクリーンショットや記事画像を選ぶと、下にプレビューが出ます。登録すると、このニュースカードだけに保存されます。画像が不要なら何も選ばなくて大丈夫です。
+                        </p>
+                        <input id="fieldImages" type="file" accept="image/*" multiple aria-label="ニュースカードに保存する画像を選択">
                         <div id="imagePreview" class="image-preview-grid"></div>
                       </div>
                     </div>
@@ -884,6 +918,7 @@
                 <li>ChatGPTが返したJSONだけをコピーします。</li>
                 <li>「登録」タブの左側にJSONを貼り付けます。</li>
                 <li>「JSON OK」と表示されたら、右側で内容を確認・修正します。</li>
+                <li>画像を一緒に残したい場合は、「画像アップロード」の「ファイルを選択」から画像を選びます。不要な場合は空のままで問題ありません。</li>
                 <li>「登録」を押すと、左の一覧と「詳細」画面に保存されます。</li>
               </ol>
               <div class="guide-grid">
@@ -894,6 +929,10 @@
                 <div class="guide-card">
                   <strong>JSONエラーが出たら</strong>
                   <p>ChatGPTの返答に説明文や```jsonが混ざっていないか確認します。「整形」ボタンで読みやすくできます。</p>
+                </div>
+                <div class="guide-card">
+                  <strong>画像の箱</strong>
+                  <p>画像はJSONではなく、登録前のプレビュー画面で手動選択します。選ぶとプレビューが表示され、登録後は詳細画面の「画像」に出ます。</p>
                 </div>
                 <div class="guide-card">
                   <strong>保存場所</strong>
@@ -1438,7 +1477,7 @@ JSON形式:
             <button type="button" data-image-index="${index}" class="danger">削除</button>
           </div>
         `).join("")
-        : '<div class="empty">画像はまだ選択されていません</div>';
+        : '<div class="empty">画像なし：必要なときだけ「ファイルを選択」から追加します</div>';
       preview.querySelectorAll("[data-image-index]").forEach((button) => {
         button.addEventListener("click", () => {
           state.draft.images.splice(Number(button.dataset.imageIndex), 1);
