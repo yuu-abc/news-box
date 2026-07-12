@@ -668,6 +668,10 @@
       display: none !important;
     }
 
+    .mobile-nav {
+      display: none;
+    }
+
     @media (max-width: 1020px) {
       .layout {
         grid-template-columns: 1fr;
@@ -690,11 +694,10 @@
 
     @media (max-width: 680px) {
       .topbar {
-        height: auto;
-        align-items: stretch;
-        gap: 10px;
-        padding: 10px 14px;
-        flex-direction: column;
+        height: 56px;
+        gap: 8px;
+        padding: 0 14px;
+        flex-direction: row;
       }
 
       .brand-mark {
@@ -711,15 +714,13 @@
       }
 
       .top-actions {
-        width: 100%;
-        flex-wrap: nowrap;
-        justify-content: flex-start;
-        overflow-x: auto;
-        padding-bottom: 2px;
-        scrollbar-width: none;
+        width: auto;
+        margin-left: auto;
+        overflow: visible;
+        padding: 0;
       }
 
-      .top-actions::-webkit-scrollbar {
+      .top-actions > :not(#newButton) {
         display: none;
       }
 
@@ -727,8 +728,32 @@
         flex: 0 0 auto;
       }
 
+      .layout {
+        display: block;
+        min-height: calc(100dvh - 56px);
+      }
+
+      .sidebar {
+        display: grid;
+        border-bottom: 0;
+      }
+
+      .sidebar.mobile-hidden {
+        display: none;
+      }
+
       .main {
+        display: none;
         padding: 14px;
+        padding-bottom: 84px;
+      }
+
+      .main.mobile-active {
+        display: block;
+      }
+
+      .tabs {
+        display: none;
       }
 
       .filters {
@@ -751,9 +776,9 @@
       }
 
       .news-list {
-        padding: 10px 14px 12px;
+        padding: 10px 14px 84px;
         gap: 8px;
-        max-height: 360px;
+        max-height: none;
       }
 
       .headline h2 {
@@ -762,6 +787,38 @@
 
       textarea {
         min-height: 300px;
+      }
+
+      .mobile-nav {
+        position: fixed;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 20;
+        display: grid;
+        grid-template-columns: repeat(5, minmax(0, 1fr));
+        gap: 2px;
+        padding: 7px 8px calc(7px + env(safe-area-inset-bottom));
+        border-top: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.96);
+        backdrop-filter: blur(12px);
+      }
+
+      .mobile-nav button {
+        min-height: 42px;
+        padding: 6px 2px;
+        border: 0;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 12px;
+        white-space: nowrap;
+      }
+
+      .mobile-nav button.active {
+        background: #eff6ff;
+        color: var(--accent);
+        font-weight: 700;
       }
     }
   </style>
@@ -792,7 +849,7 @@
           <div class="filter-row">
             <input id="searchInput" type="search" placeholder="検索">
             <select id="filterStatus" aria-label="ステータス">
-              <option value="">すべて</option>
+              <option value="">ステータス</option>
               <option value="AI生成">AI生成</option>
               <option value="確認済み">確認済み</option>
               <option value="人間が編集済み">人間が編集済み</option>
@@ -815,7 +872,7 @@
           </div>
           <div class="filter-row">
             <select id="filterFavorite" aria-label="お気に入り">
-              <option value="">すべて</option>
+              <option value="">お気に入り</option>
               <option value="favorite">お気に入り</option>
             </select>
             <button id="clearFiltersButton" type="button">絞り込み解除</button>
@@ -1016,6 +1073,13 @@
         </section>
       </main>
     </div>
+    <nav class="mobile-nav" aria-label="モバイル表示切替">
+      <button type="button" data-mobile-tab="list">一覧</button>
+      <button type="button" data-mobile-tab="register">登録</button>
+      <button type="button" data-mobile-tab="detail">詳細</button>
+      <button type="button" data-mobile-tab="prompt">本文作成</button>
+      <button type="button" data-mobile-tab="guide">使い方</button>
+    </nav>
   </div>
 
   <script>
@@ -1601,10 +1665,33 @@ JSON形式:
       document.querySelectorAll(".tab").forEach((tab) => {
         tab.classList.toggle("active", tab.dataset.tab === tabName);
       });
+      document.querySelectorAll("[data-mobile-tab]").forEach((tab) => {
+        tab.classList.toggle("active", tab.dataset.mobileTab === tabName);
+      });
+
+      const isMobile = window.matchMedia("(max-width: 680px)").matches;
+      const sidebar = document.querySelector(".sidebar");
+      const main = document.querySelector(".main");
+
+      if (tabName === "list") {
+        if (isMobile) {
+          sidebar.classList.remove("mobile-hidden");
+          main.classList.remove("mobile-active");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+        return;
+      }
+
       document.querySelectorAll(".workspace").forEach((view) => {
         view.classList.remove("active");
       });
       document.getElementById(`${tabName}View`).classList.add("active");
+
+      if (isMobile) {
+        sidebar.classList.add("mobile-hidden");
+        main.classList.add("mobile-active");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
     }
 
     function formatDate(value) {
@@ -1774,12 +1861,16 @@ ${articleBlock}`;
       document.querySelectorAll(".tab").forEach((tab) => {
         tab.addEventListener("click", () => switchTab(tab.dataset.tab));
       });
+      document.querySelectorAll("[data-mobile-tab]").forEach((tab) => {
+        tab.addEventListener("click", () => switchTab(tab.dataset.mobileTab));
+      });
       els.clearFiltersButton.addEventListener("click", clearFilters);
       [els.searchInput, els.filterStatus, els.filterImportance, els.filterConfidence, els.filterFavorite].forEach((input) => {
         input.addEventListener("input", renderList);
       });
       renderList();
       renderDetail();
+      if (window.matchMedia("(max-width: 680px)").matches) switchTab("list");
     }
 
     init();
