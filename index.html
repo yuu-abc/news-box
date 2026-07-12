@@ -1158,6 +1158,7 @@ JSON形式:
     const state = {
       items: [],
       draft: null,
+      editingId: null,
       selectedId: null,
       installPromptEvent: null
     };
@@ -1388,14 +1389,24 @@ JSON形式:
       syncDraftFromForm();
       if (!state.draft || validateNews(state.draft).length) return;
       const now = new Date().toISOString();
+      const editingIndex = state.editingId
+        ? state.items.findIndex((entry) => entry.id === state.editingId)
+        : -1;
+      const existingItem = editingIndex >= 0 ? state.items[editingIndex] : null;
       const item = {
         ...state.draft,
-        id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now()),
-        created_at: now,
+        id: existingItem
+          ? existingItem.id
+          : (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
+        created_at: existingItem ? existingItem.created_at : now,
         updated_at: now
       };
       item.images = state.draft.images || [];
-      state.items.unshift(item);
+      if (existingItem) {
+        state.items.splice(editingIndex, 1, item);
+      } else {
+        state.items.unshift(item);
+      }
       state.selectedId = item.id;
       saveItems();
       renderList();
@@ -1516,6 +1527,7 @@ JSON形式:
 
       els.detailArticle.querySelector('[data-action="edit"]').addEventListener("click", () => {
         state.draft = normalizeNews(item);
+        state.editingId = item.id;
         els.jsonInput.value = JSON.stringify(state.draft, null, 2);
         renderEditor();
         setValidation("JSON OK", "notice ok");
@@ -1655,6 +1667,7 @@ JSON形式:
     function clearDraft() {
       els.jsonInput.value = "";
       state.draft = null;
+      state.editingId = null;
       setValidation("未入力", "notice");
       renderEditor();
       const imageInput = document.getElementById("fieldImages");
