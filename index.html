@@ -691,20 +691,69 @@
     @media (max-width: 680px) {
       .topbar {
         height: auto;
-        align-items: flex-start;
-        padding: 14px;
+        align-items: stretch;
+        gap: 10px;
+        padding: 10px 14px;
         flex-direction: column;
+      }
+
+      .brand-mark {
+        width: 32px;
+        height: 32px;
+      }
+
+      .brand h1 {
+        font-size: 18px;
+      }
+
+      .brand span {
+        display: none;
+      }
+
+      .top-actions {
+        width: 100%;
+        flex-wrap: nowrap;
+        justify-content: flex-start;
+        overflow-x: auto;
+        padding-bottom: 2px;
+        scrollbar-width: none;
+      }
+
+      .top-actions::-webkit-scrollbar {
+        display: none;
+      }
+
+      .top-actions > * {
+        flex: 0 0 auto;
       }
 
       .main {
         padding: 14px;
       }
 
-      .filter-row,
+      .filters {
+        padding: 10px 14px;
+        gap: 8px;
+      }
+
+      .filter-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .filter-row:last-child button {
+        padding-inline: 8px;
+      }
+
       .form-grid,
       .guide-grid,
       .section-grid {
         grid-template-columns: 1fr;
+      }
+
+      .news-list {
+        padding: 10px 14px 12px;
+        gap: 8px;
+        max-height: 360px;
       }
 
       .headline h2 {
